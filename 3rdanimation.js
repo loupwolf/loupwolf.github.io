@@ -76,14 +76,6 @@ class simpPolygon {
     let d4 = this.determinant(e1[0], e1[1], e2[1]);
     if (d1 * d2 < 0 && d3 * d4 < 0) {
       return true;
-    } else if (d1 == 0 && this.onSegment(e2[0], e2[1], e1[0])) {
-      return true;
-    } else if (d2 == 0 && this.onSegment(e2[0], e2[1], e1[1])) {
-      return true;
-    } else if (d3 == 0 && this.onSegment(e1[0], e1[1], e2[0])) {
-      return true;
-    } else if (d4 == 0 && this.onSegment(e1[0], e1[1], e2[1])) {
-      return true;
     } else {
       return false;
     }
@@ -105,7 +97,7 @@ class simpPolygon {
     if (a && b && c) {
       return a.x * (b.y - c.y) - a.y * (b.x - c.x) + (c.y * b.x - c.x * b.y);
     } else {
-      console.log("undefined points");
+      //console.log("undefined points");
     }
   }
 }
@@ -150,10 +142,10 @@ class Obstacle extends simpPolygon {
   triangulate(pts) {
     let trgls = [];
     if (pts.length == 3) {
-      console.log("is a triangle");
+      //console.log("is a triangle");
       // The polygon is a triangle
       trgls.push(pts);
-      console.log("Pushed triangle");
+      //console.log("Pushed triangle");
     } else if (pts.length >= 4) {
       for (let p = 0; p <= pts.length - 1; p++) {
         // iterates over every vertex of the polygon to check if it is an ear
@@ -379,17 +371,22 @@ class Tether {
   }
 
   disp() {
+    stroke(120, 120, 120);
     this.polyLine.forEach(([start, end]) => {
       strokeWeight(3);
       line(start.x, start.y, end.x, end.y); // Draw line between points
       strokeWeight(1);
     });
+    stroke(0, 0, 0);
   }
   getVces() {
     return this.Vces;
   }
   getLengths() {
     return this.lengths;
+  }
+  getL() {
+    return this.L;
   }
   getLines() {
     return this.polyLine;
@@ -405,9 +402,11 @@ class Tether {
 var freePoints = []; // unassigned points
 var obstacles = []; // list of polygonal obstacles
 var shortestPath = []; // list of consecutive points between START & END points forming the shortest path
+var homotopy = [];
 var Gvis = []; // visibility graph in the form of an 2D adjacency matrix
 var visEdges = []; // visibility edges in the form of point pairs
 var triangulation = []; // triangulation of the environment in the form of a list a point triples
+var sleeve = null; // sleeve as a list of ordered triangles on which to perform the funnel algorithm for shortest homotopic path finding
 var START = null; // starting point of the robot
 var END = null; // end point of the robot
 var ANCHOR = null; // anchor for the Tether
@@ -415,11 +414,12 @@ var tether = null; // the tether is an instance of the Tether class that will be
 var message = "";
 var showVG = false;
 var showSP = false;
+var showHomo = false;
 var buttons = []; // list of the buttons
 var outerPolygon = []; // outer polygon with vertices given in counterclockwise order
 
 function setup() {
-  createCanvas(windowWidth, 600); // Make the canvas smaller to ensure buttons are visible
+  createCanvas(windowWidth, 200); // Make the canvas smaller to ensure buttons are visible
   fill("black");
   textSize(20);
 
@@ -457,46 +457,73 @@ function setup() {
   spButton.mousePressed(setTether);
   buttons.push(spButton);
 
-  console.log("Buttons created");
+  //console.log("Buttons created");
 }
-
 function draw() {
-  // Put drawings here
+  // Fond
   background(200);
 
+  // Graphe de visibilité
   if (showVG == true) {
     drawEdges(visEdges, color(0.625 * 255, 0.625 * 255, 0.625 * 255));
   }
+  /*
+  // Si des triangles croisés non redondants sont détectés
+  if (sleeve && sleeve.length > 0) {
+    for (const [triangleKey, triangleData] of sleeve.entries()) {
+      const { triangle } = triangleData;
+      const { triangleIndex } = triangleData;
+
+      if (triangle.length !== 3) {
+        //console.warn("Triangle invalide ou données manquantes :", triangle);
+        return;
+      }
+
+      // Couleur orange pour les triangles croisés non redondants
+      fill(255, 165, 0, 100); // Orange avec transparence
+      beginShape();
+      triangle.forEach((point) => {
+        vertex(point.x, point.y);
+      });
+      endShape(CLOSE);
+
+      // Calculer le centre du triangle
+      let centerX = (triangle[0].x + triangle[1].x + triangle[2].x) / 3;
+      let centerY = (triangle[0].y + triangle[1].y + triangle[2].y) / 3;
+
+      // Dessiner le numéro du triangle
+      fill(0); // Noir pour le texte
+      textSize(10);
+      textAlign(CENTER, CENTER);
+      text(triangleKey, centerX, centerY); // Affiche l'index (1-based)
+    }
+  }
+*/
+  // Points libres
+  for (let i in freePoints) {
+    ellipse(freePoints[i].x, freePoints[i].y, 4, 4);
+  }
+
+  // Obstacles
+  obstacles.forEach((obstacle) => {
+    obstacle.disp();
+  });
 
   if (tether !== null) {
     tether.disp();
   }
 
-  for (i in freePoints) {
-    ellipse(freePoints[i].x, freePoints[i].y, 4, 4);
-  }
-  obstacles.forEach((obstacle) => {
-    obstacle.disp();
-  });
-
+  // Plus court chemin
   if (showSP == true) {
-    drawEdges(shortestPath, "blue");
+    drawEdges(shortestPath, "green");
   }
-  if (triangulation.length != 0) {
-    for (triangle of triangulation) {
-      let t = [
-        triangle.getPoint(0),
-        triangle.getPoint(1),
-        triangle.getPoint(2),
-      ];
-      let edges = [
-        [t[0], t[1]],
-        [t[1], t[2]],
-        [t[2], t[0]],
-      ];
-      drawEdges(edges, "purple");
-    }
+
+  // Plus court chemin homotopique
+  if (showHomo == true) {
+    drawEdges(homotopy, "blue");
   }
+
+  // Points de départ, arrivée et ancrage
   if (START !== null) {
     fill(0, 255, 0);
     ellipse(START.x, START.y, 10, 10);
@@ -512,6 +539,8 @@ function draw() {
     ellipse(ANCHOR.x, ANCHOR.y, 10, 10);
     fill(0, 0, 0);
   }
+
+  // Affichage des messages
   text(message, 30, 50);
 }
 
@@ -529,7 +558,7 @@ function drawEdges(edges, col) {
 }
 
 function mousePressed() {
-  console.log("mouse pressed");
+  //console.log("mouse pressed");
 
   if (mouseX <= 140) {
     return;
@@ -580,7 +609,8 @@ function updateGvis() {
     let obSize = N.shift(); // extracting the size of the first obstacle
     let obIdx = 0;
     let obstacle = obstacles[obIdx];
-    console.log("the obstacle: ", JSON.stringify(obstacle));
+    ////console.log("//console.log no. 1");
+    ////console.log("the obstacle: ", JSON.stringify(obstacle));
     while (obSize > 0 || N.length > 0) {
       if (obSize == 0) {
         // new obstacle
@@ -639,7 +669,8 @@ function updateGvis() {
       i = i + 1;
     }
 
-    console.log("adjacency matrix: ", JSON.stringify(Gvis));
+    //console.log("//console.log no. 2");
+    //console.log("adjacency matrix: ", JSON.stringify(Gvis));
 
     // tackling the shortest path with a breadth first search approach
     const path = dijkstra(Gvis, ni - 2, ni - 1);
@@ -732,10 +763,10 @@ function pathLength(pts, path) {
   // path is a list of indices of the list of points
   res = 0;
   for (let i = 0; i < path.length - 1; i++) {
-    console.log(
+    /*console.log(
       "line segment: ",
       JSON.stringify([pts[path[i]], pts[path[i + 1]]])
-    );
+    );*/
     res = res + distEuc(pts[path[i]], pts[path[i + 1]]);
   }
   return res;
@@ -803,8 +834,7 @@ function setTether() {
       startAnimation();
     } catch (e) {
       tether = null;
-      message =
-        "the tether is non-compliant: intersection with obstacle detected";
+      message = "tether initialization failed";
       console.error(e.message); // "Expected a string"
     }
   }
@@ -879,6 +909,7 @@ function resetpoints() {
       tether = null;
       visEdges = [];
       shortestPath = [];
+      homotopy = [];
       triangulation = [];
       message = "Clearing the start, end and anchor points.";
     }
@@ -896,7 +927,7 @@ function determinant(a, b, c) {
   if (a && b && c) {
     return a.x * (b.y - c.y) - a.y * (b.x - c.x) + (c.y * b.x - c.x * b.y);
   } else {
-    console.log("undefined points");
+    //console.log("undefined points");
   }
 }
 
@@ -919,7 +950,163 @@ function startAnimation() {
     lastButton.remove(); // Removes the button from the DOM
   }
   buildTriangulation();
-  //firstStage();
+
+  //console.log("triangulation built");
+  let lifted_triangles = liftPolygon(tether, triangulation);
+  // Suppression des triangles redondants
+  sleeve = removeRedundantTriangles(lifted_triangles);
+
+  //console.log("sleeve computed");
+
+  let shortestHomotopic = funnelAlgorithm(sleeve, ANCHOR, START);
+
+  //console.log("Shortest homotopic path: ", JSON.stringify(shortestHomotopic));
+
+  for (let i = 0; i < shortestHomotopic.length - 1; i++) {
+    homotopy.push([
+      new Point(shortestHomotopic[i].x, shortestHomotopic[i].y),
+      new Point(shortestHomotopic[i + 1].x, shortestHomotopic[i + 1].y),
+    ]);
+  }
+  //console.log("homotopy: ", JSON.stringify(homotopy));
+
+  let tetherS = null;
+  let retractButton = createButton("Retract the tether");
+  retractButton.position(30, buttons.length * 30 + 85);
+  retractButton.mousePressed(() => {
+    tetherS = retractTether(shortestHomotopic);
+    updateGvis();
+    sleeve = null; /*
+    let xavButton = createButton("Xavier's algorithm");
+    xavButton.position(30, buttons.length * 30 + 85);
+    buttons.push(xavButton); // Add to array to keep track
+    xavButton.mousePressed(xavierAlgorithm());*/
+  });
+  buttons.push(retractButton); // Add to array to keep track
+}
+
+function xavierAlgorithm() {
+  while (buttons.length > 0) {
+    let lastButton = buttons.pop();
+    lastButton.remove(); // Removes the button from the DOM
+  }
+  //Input: The polygonal environment, the initial tether configuration, the destination point, and the maximum tether length L.
+  // Output: The shortest path from START to END with the maximal tether length constraint.
+
+  // initializing the visibility matrix's context
+  let maxLen = tether.getL();
+  let points = tether.getVces().concat([END]);
+  let ni = points.length; // initial size of the adjacency matrix containing no obstacle's edges
+  let N = []; // obstacles sizes
+  let obCpy = [...obstacles]; // copy of the obstacles list
+  obCpy.forEach((obstacle) => {
+    N.push(obstacle.getLen());
+    points = points.concat(obstacle.getLst());
+  });
+  let n = points.length; // final size of the adjacency matrix
+  let endIdx = ni - 1;
+
+  let event = 0; // starting with the anchor itself
+  let tetherSv = new Tether(
+    ANCHOR,
+    START,
+    tether.getVces().slice(1, tether.getVces().length - 1),
+    obstacles
+  );
+  let nextTerminal = createButton("Next event point");
+  nextTerminal.position(30, buttons.length * 30 + 85);
+  nextTerminal.mousePressed(() => {
+    nextEvent(event, endIdx, tetherSv, points);
+  });
+  buttons.push(nextTerminal); // Add to array to keep track
+  // 2.b for each event point ( which are our tether points)
+}
+
+function nextEvent(event, endIdx, tetherSv, points) {
+  while (buttons.length > 0) {
+    let lastButton = buttons.pop();
+    lastButton.remove(); // Removes the button from the DOM
+  }
+  const pathIdx = dijkstra(Gvis, event % endIdx, endIdx); // path between goal and anchor
+  let path = [];
+  for (let id of pathIdx) {
+    path.push(points[id]);
+  }
+  ////console.log("sliceIdx: ", JSON.stringify(range(0, event % endIdx)));
+  ////console.log("pathIdx: ", JSON.stringify(pathIdx));
+  ////console.log(
+  //  "slice: ",
+  //  JSON.stringify(tetherSv.getVces().slice(0, event % endIdx))
+  // );
+  ////console.log("path: ", JSON.stringify(path));
+  let tetherEvent = new Tether(
+    ANCHOR,
+    END,
+    tetherSv
+      .getVces()
+      .slice(0, event % endIdx)
+      .concat(path),
+    obstacles
+  );
+  tether = tetherEvent;
+  event++;
+  let nextTerminal = createButton("Next terminal");
+  nextTerminal.position(30, buttons.length * 30 + 85);
+  nextTerminal.mousePressed(() => {
+    nextEvent(event, endIdx, tetherSv, points);
+  });
+  buttons.push(nextTerminal);
+}
+
+function nT(term, goalIdx, points, n) {
+  while (buttons.length > 0) {
+    let lastButton = buttons.pop();
+    lastButton.remove(); // Removes the button from the DOM
+  }
+
+  shortestPath = [];
+  const path = dijkstra(Gvis, term, goalIdx); // path between goal and anchor
+
+  let prev = term;
+  for (let pt of path) {
+    if (pt != prev) {
+      shortestPath.push([points[prev], points[pt]]);
+      prev = pt;
+    }
+  }
+  //console.log("shortest path: ", JSON.stringify(shortestPath));
+  term++;
+
+  let nextTerminal = createButton("Next terminal");
+  nextTerminal.position(30, buttons.length * 30 + 85);
+  nextTerminal.mousePressed(() => {
+    nT(term % goalIdx, goalIdx, points, n); // Add to array to keep track
+  });
+  buttons.push(nextTerminal); // Add to array to keep track
+}
+
+function retractTether(shortestHomotopic) {
+  while (buttons.length > 0) {
+    let lastButton = buttons.pop();
+    lastButton.remove(); // Removes the button from the DOM
+  }
+
+  let tetherSv = new Tether(
+    ANCHOR,
+    START,
+    tether.getVces().slice(1, tether.getVces().length - 1),
+    obstacles
+  );
+
+  //console.log("retracting the tether");
+
+  tether = new Tether(
+    ANCHOR,
+    START,
+    shortestHomotopic.slice(1, shortestHomotopic.length - 1),
+    obstacles
+  );
+  return tetherSv;
 }
 
 function buildOuterPolygon() {
@@ -930,17 +1117,17 @@ function buildOuterPolygon() {
     new Point(windowWidth, 0),
   ]; //windows' limits in counterclockwise order
 
-  console.log("initializing sweep context");
+  //console.log("initializing sweep context");
   // Initialize a sweep context with the outer polygon
   const sweepContext = new poly2tri.SweepContext(outerPolygon);
 
-  console.log("performing the triangulation");
+  //console.log("performing the triangulation");
   // Perform the triangulation
   poly2tri.triangulate(sweepContext);
 
-  console.log("setting the data structure");
+  //console.log("setting the data structure");
   triangulation = sweepContext.getTriangles();
-  console.log(triangulation);
+  //console.log(triangulation);
 }
 
 function buildTriangulation() {
@@ -964,3 +1151,679 @@ function buildTriangulation() {
 
   triangulation = sweepContext.getTriangles();
 }
+
+function findTrianglesCrossed(tether, triangulation) {
+  if (!tether || !tether.getLines || !triangulation) {
+    console.error("Données incorrectes : tether ou triangulation manquants.");
+    return [];
+  }
+
+  const tetherSegments = tether.getLines();
+  if (!Array.isArray(tetherSegments) || tetherSegments.length === 0) {
+    console.error("Segments de la corde non définis ou vides.");
+    return [];
+  }
+
+  let crossedTriangles = new Map(); // Utiliser une Map pour gérer les triangles uniques
+
+  // Parcourir chaque segment de la corde
+  tetherSegments.forEach((segment, segmentIndex) => {
+    const startPoint = segment[0]; // Premier sommet du segment
+
+    // Parcourir chaque triangle
+    triangulation.forEach((triangle, triangleIndex) => {
+      let trianglePoints = triangle.points_ || triangle; // Points du triangle
+      if (!Array.isArray(trianglePoints) || trianglePoints.length !== 3) {
+        //console.warn("Triangle invalide :", triangle);
+        return; // Ignore les triangles incorrects
+      }
+
+      // Définir les trois arêtes du triangle
+      const triangleEdges = [
+        [trianglePoints[0], trianglePoints[1]], // Arête 1
+        [trianglePoints[1], trianglePoints[2]], // Arête 2
+        [trianglePoints[2], trianglePoints[0]], // Arête 3
+      ];
+
+      // Vérifier si le sommet initial du segment est dans le triangle
+      const pointInside = isPointInTriangle(
+        trianglePoints[0],
+        trianglePoints[1],
+        trianglePoints[2],
+        startPoint
+      );
+
+      // Vérifier quelles arêtes du triangle sont touchées
+      const edgesTouched = triangleEdges.filter((edge) =>
+        simpPolygon.prototype.intersct(segment, edge)
+      );
+
+      // Ajouter le triangle si une arête est touchée ou si le point est dedans
+      if (pointInside || edgesTouched.length > 0) {
+        const triangleKey = trianglePoints
+          .map((pt) => `${pt.x},${pt.y}`)
+          .join("-");
+
+        if (crossedTriangles.has(triangleKey)) {
+          // Ajouter le segment et les nouvelles arêtes au triangle existant
+          let existing = crossedTriangles.get(triangleKey);
+          existing.segments.push(segmentIndex);
+          existing.edgesTouched.push(...edgesTouched); // Ajouter les arêtes touchées
+        } else {
+          // Ajouter un nouveau triangle
+          crossedTriangles.set(triangleKey, {
+            triangleIndex, // Index du triangle
+            triangle: trianglePoints, // Points du triangle
+            segments: [segmentIndex], // Liste des segments croisés
+            edgesTouched: edgesTouched, // Arêtes touchées par ce segment
+          });
+        }
+      }
+    });
+  });
+
+  // Convertir la Map en tableau et trier
+  let sortedTriangles = Array.from(crossedTriangles.values());
+  sortedTriangles.sort((a, b) => {
+    // Trier par le premier segment qui traverse le triangle
+    let diffSegIdx = Math.min(...a.segments) - Math.min(...b.segments);
+    if (diffSegIdx != 0) {
+      return diffSegIdx;
+    } else {
+      let SEG = tether.getLines()[Math.min(...a.segments)];
+      return lambdaConvex(a, SEG) - lambdaConvex(b, SEG);
+    }
+  });
+  return sortedTriangles;
+}
+
+function lambdaConvex(triangle, segment) {
+  let v = segment[0]; // two tether points
+  let w = segment[1];
+  let n = 0;
+  let µLambda = 0;
+  for (let edge of triangle.edgesTouched) {
+    const [V1, V2] = edge;
+    const a = { x: V1.x, y: V1.y }; // two edge points
+    const b = { x: V2.x, y: V2.y };
+    if (simpPolygon.prototype.intersct(segment, [a, b])) {
+      let p = iSection(v, w, a, b);
+
+      let lambda = (p.x - v.x) / (w.x - v.x);
+      µLambda = (lambda + n * µLambda) / (n + 1);
+      n++;
+    }
+  }
+
+  return µLambda;
+}
+
+function iSection(v, w, a, b) {
+  const delxBA = b.x - a.x;
+  const delyBA = b.y - a.y;
+  const delxVW = -w.x + v.x;
+  const delyVW = -w.y + v.y;
+
+  if (delxBA === 0 || delxVW === 0) {
+    //console.log("Division by zero: Lines are parallel or vertical.");
+    // rotating axis
+    delxBA = delyBA;
+    delxVW = delyVW;
+    delyBA = 0;
+    delyVW = 0;
+  }
+
+  let px =
+    (w.y - a.y + a.x * (delyBA / delxBA) - w.x * (delyVW / delxVW)) /
+    (delyBA / delxBA - delyVW / delxVW);
+  let py = (delyBA / delxBA) * (px - a.x) + a.y;
+  return { x: px, y: py };
+}
+
+// Fonction pour calculer la distance d'un point à un segment
+function distancePointToSegment(point, segment) {
+  const [p1, p2] = segment;
+  const x = point.x,
+    y = point.y;
+  const x1 = p1.x,
+    y1 = p1.y,
+    x2 = p2.x,
+    y2 = p2.y;
+
+  // Calcul de la projection du point sur le segment
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const t = Math.max(
+    0,
+    Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy))
+  );
+  const projX = x1 + t * dx;
+  const projY = y1 + t * dy;
+
+  // Distance entre le point et sa projection
+  return Math.sqrt((x - projX) ** 2 + (y - projY) ** 2);
+}
+
+function removeRedundantTriangles(crossedTriangles) {
+  // Étape 0 : Afficher les valeurs de edgesTouched pour chaque triangle
+  // Étape 1 : Filtrer les triangles avec des arêtes redondantes
+  let filteredTriangles = crossedTriangles.filter(({ edgesTouched }) => {
+    if (!edgesTouched || edgesTouched.length === 0) {
+      // Si aucune arête n'est touchée, conserver le triangle
+      return true;
+    }
+
+    const stack = [];
+
+    // Traiter chaque arête touchée
+    edgesTouched.forEach((edge) => {
+      if (
+        stack.length > 0 &&
+        stack[stack.length - 1][0].x === edge[0].x &&
+        stack[stack.length - 1][0].y === edge[0].y &&
+        stack[stack.length - 1][1].x === edge[1].x &&
+        stack[stack.length - 1][1].y === edge[1].y
+      ) {
+        // Si l'arête actuelle est identique à celle au sommet de la pile, dépilez
+        stack.pop();
+      } else {
+        // Sinon, empilez l'arête
+        stack.push(edge);
+      }
+    });
+
+    // Conserver le triangle si la pile n'est pas vide
+    return stack.length > 0;
+  });
+
+  // Étape 2 : Si aucune modification, retourner les triangles filtrés
+  if (filteredTriangles.length === crossedTriangles.length) {
+    //console.log("Aucun changement détecté après filtration.");
+    return filteredTriangles; // Aucun changement
+  }
+
+  // Étape 3 : Appel récursif pour éliminer les redondances restantes
+  //console.log("Triangles après une passe de filtration :", filteredTriangles);
+  return removeRedundantTriangles(filteredTriangles);
+}
+
+function liftPolygon(tether, triangulation) {
+  if (!tether || !triangulation) {
+    console.error("Paramètres invalides : tether ou triangulation manquants.");
+    return [];
+  }
+
+  const crossedTriangles = findTrianglesCrossed(tether, triangulation);
+
+  if (!Array.isArray(crossedTriangles)) {
+    console.error(
+      "findTrianglesCrossed n'a pas retourné un tableau :",
+      crossedTriangles
+    );
+    return [];
+  }
+
+  let contextDetailsList = [];
+
+  crossedTriangles.forEach(({ triangle, segments, edgesTouched }, index) => {
+    if (!triangle || !segments || !edgesTouched) {
+      console.warn(`Élément à l'index ${index} ignoré car incomplet :`, {
+        triangle,
+        segments,
+        edgesTouched,
+      });
+      return;
+    }
+
+    // Découper les `segments` et associer les `edgesTouched`
+    const groupedSegmentsAndEdges = splitIntoContiguous(segments, edgesTouched);
+
+    groupedSegmentsAndEdges.forEach(({ segments: segmentSubset, edges }) => {
+      // Générer des clés uniques
+      const triangleKey = generateTriangleKey(triangle);
+      const segmentsKey = generateSegmentsKey(segmentSubset);
+      const contextKey = `${triangleKey}|${segmentsKey}`;
+
+      // Ajouter au contexte avec clé unique
+      contextDetailsList.push({
+        key: contextKey, // Clé unique combinée
+        triangleIndex: index, // Ajouter l'index du triangle
+        triangle: triangle.map((pt) => new Point(pt.x, pt.y)), // Convertir les points
+        segments: segmentSubset,
+        edgesTouched: edges,
+      });
+    });
+  });
+
+  // Tri final : priorise le triangle avec uniquement le segment 0
+  contextDetailsList.sort((a, b) => {
+    const isZeroOnlyA = a.segments.length === 1 && a.segments[0] === 0;
+    const isZeroOnlyB = b.segments.length === 1 && b.segments[0] === 0;
+
+    if (isZeroOnlyA && !isZeroOnlyB) return -1; // `a` avec `[0]` doit être avant
+    if (!isZeroOnlyA && isZeroOnlyB) return 1; // `b` avec `[0]` doit être avant
+
+    const firstSegmentA = Math.min(...a.segments);
+    const firstSegmentB = Math.min(...b.segments);
+    if (firstSegmentA - firstSegmentB != 0) {
+      return firstSegmentA - firstSegmentB;
+    } else {
+      let SEG = tether.getLines()[firstSegmentA];
+      return lambdaConvex(a, SEG) - lambdaConvex(b, SEG);
+    }
+  });
+
+  // Swap explicite du premier et deuxième élément après le tri
+  if (
+    contextDetailsList.length > 1 &&
+    contextDetailsList[0].segments[0] !== 0
+  ) {
+    const temp = contextDetailsList[0];
+    contextDetailsList[0] = contextDetailsList[1];
+    contextDetailsList[1] = temp;
+  }
+
+  // Transformer les triangles relevés en format compatible avec buildTriangulation
+  const liftedTriangles = contextDetailsList.map((entry) => ({
+    triangleIndex: entry.triangleIndex, // L'index du triangle
+    triangle: entry.triangle, // Points formatés pour poly2tri
+    segments: entry.segments,
+    edgesTouched: entry.edgesTouched, // Arêtes touchées
+  }));
+
+  console.log("Triangles relevés (format final) :", liftedTriangles);
+
+  return liftedTriangles;
+}
+
+function splitIntoContiguous(segments, edgesTouched) {
+  if (!Array.isArray(segments) || segments.length === 0) {
+    return [];
+  }
+
+  // Trier les segments pour garantir l'ordre
+  segments.sort((a, b) => a - b);
+
+  let result = [];
+  let edgesIndex = 0; // Pointeur pour parcourir les edgesTouched
+
+  let currentGroup = [segments[0]];
+  let currentEdges = [];
+
+  for (let i = 1; i < segments.length; i++) {
+    if (segments[i] === segments[i - 1] + 1) {
+      // Segment contigu : ajouter au groupe actuel
+      currentGroup.push(segments[i]);
+    } else {
+      // Nouveau groupe : attribuer les arêtes
+      if (currentGroup[0] === 0) {
+        // Si le groupe contient uniquement [0], associer une seule arête
+        if (edgesIndex < edgesTouched.length) {
+          currentEdges.push(edgesTouched[edgesIndex++]); // Première arête
+        }
+      } else {
+        // Sinon, attribuer les arêtes normalement
+        if (edgesIndex < edgesTouched.length) {
+          currentEdges.push(edgesTouched[edgesIndex++]); // Premier élément
+        }
+        if (edgesIndex < edgesTouched.length) {
+          currentEdges.push(edgesTouched[edgesIndex++]); // Dernier élément
+        }
+      }
+
+      result.push({
+        segments: currentGroup,
+        edges: currentEdges,
+      });
+
+      // Réinitialiser pour le nouveau groupe
+      currentGroup = [segments[i]];
+      currentEdges = [];
+    }
+  }
+
+  // Dernier groupe : attribuer les arêtes
+  if (currentGroup.length === 1 && currentGroup[0] === 0) {
+    // Si le groupe contient uniquement [0], associer une seule arête
+    if (edgesIndex < edgesTouched.length) {
+      currentEdges.push(edgesTouched[edgesIndex++]); // Première arête
+    }
+  } else {
+    // Sinon, attribuer les arêtes normalement
+    if (edgesIndex < edgesTouched.length) {
+      currentEdges.push(edgesTouched[edgesIndex++]); // Premier élément
+    }
+    if (edgesIndex < edgesTouched.length) {
+      currentEdges.push(edgesTouched[edgesIndex++]); // Dernier élément
+    }
+  }
+
+  result.push({
+    segments: currentGroup,
+    edges: currentEdges,
+  });
+
+  return result;
+}
+
+function generateTriangleKey(triangle) {
+  if (!Array.isArray(triangle) || triangle.length !== 3) {
+    console.error("Triangle invalide :", triangle);
+    return "";
+  }
+  return triangle
+    .map((pt) => `${pt.x},${pt.y}`) // Transforme chaque point en une chaîne
+    .sort() // Trie les chaînes pour un ordre cohérent
+    .join("|"); // Combine les chaînes avec un séparateur
+}
+
+function generateSegmentsKey(segments) {
+  if (!Array.isArray(segments)) {
+    console.error("Segments invalides :", segments);
+    return "";
+  }
+  return segments.sort((a, b) => a - b).join(","); // Trie les indices et les combine
+}
+
+function copyTriangle(triangle) {
+  if (!Array.isArray(triangle)) {
+    console.error("Triangle invalide dans copyTriangle :", triangle);
+    return [];
+  }
+  return triangle.map((pt) => ({ x: pt.x, y: pt.y })); // Copie profonde des points
+}
+
+function funnelAlgorithm(sleeve, start, goal) {
+  // Helper function to compute the cross product
+  const cross = (o, a, b) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+  // Helper function to check if two vertices are the same
+  const same = (v1, v2) => v1.x === v2.x && v1.y === v2.y;
+
+  // Initialize the funnel's apex and boundaries
+  let apex = start;
+  let leftPath = [];
+  let rightPath = [];
+  let portals = [];
+  let path = [start];
+
+  // Iterate through ordered triangles in the sleeve
+  ////console.log("iterating through ordered triangles in the sleeve");
+  for (const [triangleKey, { edgesTouched, segments }] of sleeve.entries()) {
+    const edges = []; // Holds edges with sorted keys
+
+    // Process each edge
+    ////console.log("edge of edges touched");
+    for (const edge of edgesTouched) {
+      let [v1, v2] = edge.map(({ x, y }) => ({ x, y }));
+
+      // Determine edge orientation using segments
+      ////console.log("idx of segments");
+      for (const idx of segments) {
+        const [seg1, seg2] = tether.getLines()[idx];
+        if (simpPolygon.prototype.intersct([seg1, seg2], [v1, v2])) {
+          const intersection = iSection(v1, v2, seg1, seg2);
+          if (
+            cross(seg1, intersection, v1) > 0 &&
+            cross(seg1, intersection, v2) < 0
+          ) {
+            // Swap to maintain correct orientation
+            [v1, v2] = [v2, v1];
+          }
+        }
+      }
+      edges.push({ edge: [v1, v2], key: triangleKey });
+    }
+
+    // Add vertices to left or right path
+    ////console.log("edge key of edges");
+    for (const {
+      edge: [v1, v2],
+      key: k,
+    } of edges) {
+      ////console.log("add unique edge");
+
+      if (addUniqueEdge(portals, [v1, v2], k)) {
+        leftPath.push(v1);
+        rightPath.push(v2);
+      }
+    }
+  }
+
+  leftPath.push(goal);
+  rightPath.push(goal);
+  portals.push({ edge: [goal, goal], key: sleeve.length });
+  //console.log("leftPath: ", JSON.stringify(leftPath));
+  //console.log("rightPath: ", JSON.stringify(rightPath));
+  //console.log("portals: ", JSON.stringify(portals));
+
+  let portalSave = [...portals];
+  //console.log("portals saved: ", JSON.stringify(portalSave));
+  let left = null;
+  let right = null;
+
+  let it = 0;
+  let r = 0;
+  let l = 0;
+  let curr = 0;
+  let curl = 0;
+  // Process the funnel while leftPath or rightPath remains
+  while (
+    portals.length > 0 &&
+    curl < leftPath.length &&
+    curr < rightPath.length
+  ) {
+    ////console.log("portal edge: %o %o", v1, v2);
+    //console.log("portals: ", JSON.stringify(portals));
+    let {
+      edge: [v1, v2],
+      key,
+    } = portals.shift();
+    /*console.log(
+      "leftPath: ",
+      JSON.stringify(leftPath.slice(curl, leftPath.length + 1))
+    );
+    console.log(
+      "rightPath: ",
+      JSON.stringify(rightPath.slice(curr, rightPath.length + 1))
+    );*/
+    //console.log("apex: %o, left: %o, right: %o", apex, left, right);
+    if (!left && !right) {
+      if (same(v1, leftPath[curl]) && same(v2, rightPath[curr])) {
+        l = curl;
+        r = curr;
+        left = leftPath[curl++];
+        right = rightPath[curr++];
+      } else {
+        //console.log("v1: %o leftPath[curl]: %o", v1, leftPath[curl]);
+        //console.log("v2: %o rightPath[curr]: %o", v2, rightPath[curr]);
+        throw console.error(
+          "mismatch between initial portal and left/right paths"
+        );
+      }
+    } else {
+      // left and right are already assigned to a previous portal's vertices
+      if (
+        (same(v1, leftPath[curl]) || same(v1, left)) &&
+        (same(v2, rightPath[curr]) || same(v2, right))
+      ) {
+        if (same(v1, left) && same(v2, rightPath[curr])) {
+          // funnel changes on the right
+          curl++;
+          if (cross(apex, right, v2) <= 0) {
+            r = curr;
+            right = rightPath[curr++];
+            //console.log("right updates: ", JSON.stringify(right));
+            if (checkCrossing(left, right, apex)) {
+              // Funnel collapse: choose the next apex
+              path.push(left);
+              apex = left;
+              left = null;
+              right = null;
+              //console.log("next apex: ", apex);
+              portals = recoverPortals(portalSave, r + 1);
+              curr = r + 1;
+              curl = r + 1;
+            }
+          } else {
+            curr++;
+          }
+        } else if (same(v2, right) && same(v1, leftPath[curl])) {
+          // funnel changes on the left
+          curr++;
+          if (cross(apex, left, v1) >= 0) {
+            l = curl;
+            left = leftPath[curl++];
+            //console.log("left updates: ", JSON.stringify(left));
+            if (checkCrossing(left, right, apex)) {
+              // Funnel collapse: choose the next apex
+              path.push(right);
+              apex = right;
+              right = null;
+              left = null;
+              //console.log("next apex: ", apex);
+              portals = recoverPortals(portalSave, l + 1);
+              curl = l + 1;
+              curr = l + 1;
+            }
+          } else {
+            curl++;
+          }
+        } else if (same(v1, leftPath[curl]) && same(v2, rightPath[curr])) {
+          // both v1 & v2 are different from left and right respectively ~ portal jump as opposed to portal pivoting
+          if (cross(apex, left, v1) >= 0) {
+            //console.log("jump at iteration %f with tightening on the left", it);
+            curr++;
+            l = curl;
+            left = leftPath[curl++];
+            //console.log("left updates: ", JSON.stringify(left));
+            if (checkCrossing(left, right, apex)) {
+              // Funnel collapse: choose the next apex
+              path.push(right);
+              apex = right;
+              right = null;
+              left = null;
+              //console.log("next apex: ", apex);
+              portals = recoverPortals(portalSave, r + 1);
+              curr = r + 1;
+              curl = r + 1;
+            }
+          } else if (cross(apex, right, v2) <= 0) {
+            /*console.log(
+              "jump at iteration %f with tightening on the right",
+              it
+            );*/
+            curl++;
+            r = curr;
+            right = rightPath[curr++];
+            //console.log("right updates: ", JSON.stringify(right));
+            if (checkCrossing(left, right, apex)) {
+              // Funnel collapse: choose the next apex
+              path.push(left);
+              apex = left;
+              right = null;
+              left = null;
+              //console.log("next apex: ", apex);
+              portals = recoverPortals(portalSave, l + 1);
+              curl = l + 1;
+              curr = l + 1;
+            }
+          } else {
+            /*console.log(
+              "jump at iteration %f with no tightening of the funnel",
+              it
+            );*/
+            curr++;
+            curl++;
+          }
+        } else {
+          /*console.log(
+            "mismatch between portal and left/right paths at iteration %f",
+            it
+          );*/
+          return path;
+        }
+      }
+    }
+    //console.log("apex: %o, left: %o, right: %o", apex, left, right);
+    it++;
+  }
+
+  // Add the goal to the final path
+  path.push(goal);
+
+  return path;
+}
+
+function recoverPortals(psave, idx) {
+  return psave.slice(idx, psave.length);
+}
+
+function addUnique(path, obj) {
+  if (!path.some((o) => o.x === obj.x && o.y === obj.y)) {
+    path.push(obj);
+  }
+}
+
+//automatically generated function
+function addUniqueEdge(portals, e, k) {
+  // Helper function to check if two vertices are the same
+  const same = (v1, v2) => v1.x === v2.x && v1.y === v2.y;
+
+  // Check if the edge (in either direction) is already in the portals array
+  const isDuplicate = portals.some(
+    ({ edge: existingEdge, key: existingKey }) => {
+      const sameDirection =
+        (same(existingEdge[0], e[0]) && same(existingEdge[1], e[1])) || // Same direction
+        (same(existingEdge[0], e[1]) && same(existingEdge[1], e[0])); // Reverse direction
+      return sameDirection && Math.abs(existingKey - k) <= 1; // Check key condition
+    }
+  );
+
+  // Add the edge to portals if it is not a duplicate
+  if (!isDuplicate) {
+    portals.push({ edge: e, key: k }); // Add edge and key as an object
+    return true;
+  }
+  return false;
+}
+
+function checkCrossing(left, right, apex) {
+  // Helper function to compute the cross product
+  const cross = (o, a, b) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); // positive if ob is leftward and oa is rightward
+
+  // Check if the funnel collapses (left and right paths cross)
+  if (left && right) {
+    if (cross(apex, right, left) >= 0) {
+      //console.log("rightPath and leftPath cross each other, new apex!");
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkSamePortal(portals, left, right, max) {
+  // Helper function to check if two vertices are the same
+  const same = (v1, v2) => v1.x === v2.x && v1.y === v2.y;
+  // Iterate through each element of the sleeve
+  for (let i = 0; i < max; i++) {
+    [p1, p2] = portals[i];
+    if (
+      (same(p1, left) && same(p2, right)) ||
+      (same(p2, left) && same(p1, right))
+    ) {
+      return true;
+    }
+  }
+  return false; // No matching edge found
+}
+
+function range(start, end, step = 1) {
+  return Array.from(
+    { length: Math.ceil((end - start) / step) },
+    (_, i) => start + i * step
+  );
+}
+
