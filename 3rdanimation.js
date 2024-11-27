@@ -419,7 +419,7 @@ var buttons = []; // list of the buttons
 var outerPolygon = []; // outer polygon with vertices given in counterclockwise order
 
 function setup() {
-  createCanvas(windowWidth, 200); // Make the canvas smaller to ensure buttons are visible
+  createCanvas(windowWidth, 600); // Make the canvas smaller to ensure buttons are visible
   fill("black");
   textSize(20);
 
