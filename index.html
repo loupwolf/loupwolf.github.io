@@ -227,11 +227,11 @@ task (e.g. articulated arms in manufacture / exploratory robots with
 wheels / etc...).</p>
 <p>For the sake of formal academic study, those problems are often
 simplified with plausible assumptions - i.e. planar environment,
-polygonal obstacles, point-like robot <span class="citation"
+polygonal obstacles, point-like robot [deBerg,see pp. 283-306]<span class="citation"
 data-cites="deBerg"></span>.</p>
 <p>In those simplified forms, the robot motion planning problem allows
 for efficient solutions among which shortest path planning algorithms
-<span class="citation" data-cites="deBerg"></span>.</p>
+[deBerg,see pp. 323-33]<span class="citation" data-cites="deBerg"></span>.</p>
 <p>In the article of interest - "Shortest path planning for a tethered
 robot" - the authors dwell on a variant of the more standard problem of
 untethered (on batteries) robot motion planning. Indeed they study the
@@ -239,7 +239,7 @@ particular case for which a point-like robot must be linked to a power
 or communication cable for its movements. They further differentiate
 between two models of tethered robots - retraction vs. backtracking -
 and go on to provide the associated algorithms for shortest path
-planning <span class="citation" data-cites="Brass2015"></span>.</p>
+planning [Brass]<span class="citation" data-cites="Brass2015"></span>.</p>
 <p>This report covers documentary research on the subject as well as
 illustrates the concepts through the commenting of detailed
 animations.</p>
@@ -249,10 +249,10 @@ problem:</h1>
 <p>As mentioned in the introduction, simplifying assumptions have to be
 made in order to formally study the general robot motion planning
 problem. A fruitful approach may be to consider a planar environment
-with polygonal obstacles (this is the road the authors go down in <span
+with polygonal obstacles (this is the road the authors go down in [Brass]<span
 class="citation" data-cites="Brass2015"></span>). While this may at
 first seem restrictive, it is actually a sufficient representation to
-plan the motion of "a robot moving around on a work floor" <span
+plan the motion of "a robot moving around on a work floor" [deBerg,see pp. 283-306]<span
 class="citation" data-cites="deBerg"></span>.</p>
 <p>Drawing on this representation of obstacles, it only seems natural to
 posit that the robot itself should also be polygonal. As it happens,
@@ -266,7 +266,7 @@ polynomial time for <span class="math inline"><em>n</em></span> and
 class="math inline"><em>m</em> − <em>v</em><em>e</em><em>r</em><em>t</em><em>e</em><em>x</em></span>
 concave polygons respectively, in the case where one or more of the
 robot and obstacle polygons is convex the time complexity is even less
-<span class="citation" data-cites="deBerg"></span>. For this reason, the
+[deBerg,see Theorem 13.11]<span class="citation" data-cites="deBerg"></span>. For this reason, the
 following paragraphs focus exclusively on the point robot motion
 planning problem with limited loss of generality.</p>
 <figure id="pointRobot">
@@ -282,9 +282,9 @@ positions of the point robot, there should be strong operational
 incentives in practice to find a short one let alone the shortest one.
 In the context of a planar environment with disjoint polygonal
 obstacles, any shortest path is a polygonal line whose inner vertices
-are obstacle vertices <span class="citation"
+are obstacle vertices [deBerg,see Lemma 15.1]<span class="citation"
 data-cites="deBerg"></span>. Stated differently , the shortest path
-consists of arcs of the obstacles’ visibility graph <span
+consists of arcs of the obstacles’ visibility graph [deBerg,see Corollary 15.2]<span
 class="citation" data-cites="deBerg"></span>. The visibility graph <span
 class="math inline"><em>G</em><sub><em>v</em><em>i</em><em>s</em></sub>(<em>S</em>)</span>
 of the set <span class="math inline"><em>S</em></span> of disjoint
@@ -293,7 +293,7 @@ and goal points as well as all unobstructed edges between them (see a
 representation on figure <a href="#visibility graph"
 data-reference-type="ref" data-reference="visibility graph">2</a>). It
 can be computed in time <span
-class="math inline"><em>O</em>(<em>n</em><sup>2</sup><em>l</em><em>o</em><em>g</em>(<em>n</em>))</span>
+class="math inline"><em>O</em>(<em>n</em><sup>2</sup><em>l</em><em>o</em><em>g</em>(<em>n</em>))</span> [deBerg,see Theorem 15.4]
 <span class="citation" data-cites="deBerg"></span>.</p>
 <figure id="shortest path">
 <figure id="visibility graph">
@@ -321,7 +321,7 @@ class="math inline"><em>n</em></span> are the number of edges and
 vertices of the graph. Since <span
 class="math inline"><em>k</em> ≤ <em>n</em>(<em>n</em> − 1)/2 = <em>O</em>(<em>n</em><sup>2</sup>)</span>
 this gives a time complexity of <span
-class="math inline"><em>O</em>(<em>n</em><sup>2</sup><em>l</em><em>o</em><em>g</em>(<em>n</em>))</span>
+class="math inline"><em>O</em>(<em>n</em><sup>2</sup><em>l</em><em>o</em><em>g</em>(<em>n</em>))</span>[deBerg,see Theorem 15.3]
 <span class="citation" data-cites="deBerg"></span>.</p>
 <p>So, overall, the time complexity of the shortest path planning
 problem for a point robot in a planar and polygonal environment composed
@@ -379,7 +379,7 @@ path <span class="math inline"><em>X</em></span> extends. Retraction of
 the tether, forming the final configuration <span
 class="math inline"><em>Z</em><sup>*</sup></span>, only takes place when
 the robot backtracks. This model highlights the challenges of navigating
-around obstacles while keeping the tether length within limits <span
+around obstacles while keeping the tether length within limits [Brass]<span
 class="citation" data-cites="Brass2015"></span>.</p>
 <h3 id="observations"><strong>Observations</strong></h3>
 <p>In the <em>backtracking model</em>, the tether retracts only when the
@@ -388,7 +388,7 @@ from its path, the tether remains extended, requiring the robot to
 traverse the <strong>shortest path</strong> <span
 class="math inline"><em>S</em><em>P</em>(<em>p</em>, <em>t</em>)</span>
 from the last feasible point <span class="math inline"><em>p</em></span>
-to the destination <span class="math inline"><em>t</em></span> <span
+to the destination <span class="math inline"><em>t</em></span> [Brass]<span
 class="citation" data-cites="Brass2015"></span>.</p>
 <h4 id="feasible-points">1. Feasible Points:</h4>
 <p>A point <span class="math inline"><em>p</em></span> on the initial
@@ -414,7 +414,7 @@ class="math inline"><em>X</em><sub><em>u</em>, <em>r</em></sub> ∘ <em>S<
 will exactly match the maximum tether length <span
 class="math inline"><em>L</em></span>.</p>
 <h3 id="algorithm"><strong>Algorithm</strong></h3>
-<p>The following stpng outline the shortest path calculation:<span
+<p>The following stpng outline the shortest path calculation: [Brass]<span
 class="citation" data-cites="Brass2015"></span></p>
 <h4 id="build-the-shortest-path-map">1. Build the Shortest Path Map</h4>
 <p>Generate the Euclidean shortest path map from <span
@@ -488,7 +488,7 @@ time, where <span class="math inline"><em>n</em></span> is the number of
 obstacle points and <span class="math inline"><em>k</em></span> is the
 number of vertices in <span class="math inline"><em>X</em></span>. The
 complexity is achieved through binary search and efficient path
-queries<span class="citation" data-cites="Brass2015"></span>.</p>
+queries [Brass]<span class="citation" data-cites="Brass2015"></span>.</p>
 <h2 id="the-retraction-model"><strong>The Retraction Model</strong></h2>
 <h4 id="introduction.">Introduction.</h4>
 <p>The retraction model assumes that the tether linking the robot to its
@@ -548,7 +548,7 @@ complete, the environment is used for:</p>
 <li><p>Managing tether configurations and event points.</p></li>
 </ul>
 <p>After computations in the lifted space, the results are projected
-back to the original environment.<span class="citation"
+back to the original environment.[Hershberger]<span class="citation"
 data-cites="Hershberger1994"></span></p>
 <h4 id="event-points.">Event Points.</h4>
 <p>An <strong>event point</strong> is a critical point along the tether
@@ -625,7 +625,7 @@ obstacle vertices.</p></li>
 and lifting, provides an efficient and robust solution for tethered
 robot path planning. It ensures that the tether’s length constraints are
 respected, even in environments with complex topologies, while
-minimizing computational overhead <span class="citation"
+minimizing computational overhead [Brass]<span class="citation"
 data-cites="Brass2015"></span>.</p>
 <h1 class="unnumbered" id="section-3"></h1>
 <h1 class="unnumbered" id="references">References</h1>
